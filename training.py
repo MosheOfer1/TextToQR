@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.optim as optim
 from matplotlib import pyplot as plt
@@ -43,6 +44,11 @@ def train_model(model, train_loader, num_epochs, learning_rate, device, log_inte
                 # Threshold the output to get binary values
                 pred_binary = (output > 0.5).float()
 
+                # Calculate pixel accuracy
+                correct_pixels = (pred_binary == target_qr).float().sum()
+                total_pixels = torch.numel(target_qr)
+                pixel_accuracy = (correct_pixels / total_pixels) * 100  # percentage
+
                 # Log images
                 pred_image = pred_binary[0].cpu().detach().view(21, 21).numpy()
                 target_image = target_qr[0].cpu().view(21, 21).numpy()
@@ -56,8 +62,13 @@ def train_model(model, train_loader, num_epochs, learning_rate, device, log_inte
                 ax2.axis('off')
                 plt.tight_layout()
 
+                # Log to wandb
                 wandb.log({
-                    "qr_codes": wandb.Image(fig, caption="Predicted vs Target")
+                    "qr_codes": wandb.Image(fig, caption="Predicted vs Target"),
+                    "pixel_accuracy": pixel_accuracy.item(),
+                    "train_loss": loss.item(),
+                    "global_step": global_step,
+                    "epoch": epoch,
                 }, step=global_step)
                 plt.close(fig)
 
