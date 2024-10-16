@@ -32,51 +32,54 @@ def tokenize_and_pad(string_list, max_length, pad_token_id):
 
 
 class Model(nn.Module):
-    def __init__(self, vocab_size=128, embed_size=256, hidden_size=512, max_length=14, num_encoder_layers=3):
+    def __init__(self, vocab_size=128, embed_size=1024, hidden_size=4816, max_length=14, num_encoder_layers=6, num_heads=8):
         super(Model, self).__init__()
-        self.max_length = max_length
+        self.max_length = max_length + 1  # +1 for [CLS] token
         self.pad_token_id = vocab_size  # Use the last token as padding token
+        self.cls_token_id = vocab_size + 1  # Use vocab_size + 1 as [CLS] token
 
-        # Embedding layer (increase vocab_size by 1 to accommodate pad token)
-        self.embedding = nn.Embedding(vocab_size + 1, embed_size, padding_idx=self.pad_token_id)
+        # Embedding layer (increase vocab_size by 2 to accommodate pad token and [CLS] token)
+        self.embedding = nn.Embedding(vocab_size + 2, embed_size, padding_idx=self.pad_token_id)
 
         # BartEncoder configuration
         bart_config = BartConfig(
-            vocab_size=vocab_size + 1,  # Include pad token in vocab
+            vocab_size=vocab_size + 2,  # Include pad token and [CLS] token in vocab
             d_model=embed_size,
             encoder_layers=num_encoder_layers,
-            encoder_attention_heads=8,
+            encoder_attention_heads=num_heads,
             encoder_ffn_dim=hidden_size,
-            max_position_embeddings=max_length,
+            max_position_embeddings=self.max_length,
             pad_token_id=self.pad_token_id
         )
 
         # BartEncoder layer
         self.encoder = BartEncoder(bart_config)
 
-        # Attention layer for sequence representation
-        self.attention = nn.MultiheadAttention(embed_dim=embed_size, num_heads=1)
-
         self.f1 = nn.Linear(embed_size, 441)  # 21x21 = 441
 
     def forward(self, tokens, attention_mask):
         batch_size = tokens.size(0)
 
+        # Add [CLS] token at the beginning of each sequence
+        cls_tokens = torch.full((batch_size, 1), self.cls_token_id, dtype=tokens.dtype, device=tokens.device)
+        tokens = torch.cat([cls_tokens, tokens], dim=1)
+
+        # Update attention mask for [CLS] token
+        cls_mask = torch.ones((batch_size, 1), dtype=attention_mask.dtype, device=attention_mask.device)
+        attention_mask = torch.cat([cls_mask, attention_mask], dim=1)
+
         # Embed tokens
-        x = self.embedding(tokens)  # Shape: [batch_size, max_length, embed_size]
+        x = self.embedding(tokens)  # Shape: [batch_size, max_length + 1, embed_size]
 
         # Pass through BartEncoder
         encoder_outputs = self.encoder(input_ids=None, inputs_embeds=x, attention_mask=attention_mask)
-        sequence_output = encoder_outputs.last_hidden_state  # Shape: [batch_size, max_length, embed_size]
+        sequence_output = encoder_outputs.last_hidden_state  # Shape: [batch_size, max_length + 1, embed_size]
 
-        # Apply attention to get sequence representation
-        sequence_output = sequence_output.transpose(0, 1)  # Shape: [max_length, batch_size, embed_size]
-        query = self.f1.weight.mean(dim=0, keepdim=True).unsqueeze(1).expand(-1, batch_size, -1)
-        context, _ = self.attention(query, sequence_output, sequence_output, key_padding_mask=attention_mask.eq(0))
-        sequence_repr = context.squeeze(0)  # Shape: [batch_size, embed_size]
+        # Extract [CLS] token representation
+        cls_representation = sequence_output[:, 0, :]  # Shape: [batch_size, embed_size]
 
         # Feed-forward layers
-        x = self.f1(sequence_repr)
+        x = self.f1(cls_representation)
         x = torch.sigmoid(x)  # Sigmoid to get values between 0 and 1
 
         return x  # Shape: [batch_size, 441]
