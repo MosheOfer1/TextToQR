@@ -1,64 +1,51 @@
 import torch
-import numpy as np
 from torch.utils.data import DataLoader
+import argparse
 
 from model import Model, tokenize_and_pad
 from qr_dataset import QRDataSet
 from training import train_model
 
 
-def image_to_tensor(image):
-    """
-    Convert a 21x21 image to a 1D tensor of size 441.
-
-    Args:
-    image (PIL.Image): Input 21x21 image
-
-    Returns:
-    torch.Tensor: 1D tensor of size 441
-    """
-    # Ensure the input is the correct size
-    assert image.size == (21, 21), "Input image must be 21x21 pixels"
-
-    # Convert the image to a numpy array
-    img_array = np.array(image)
-
-    # Ensure the image is in grayscale
-    if len(img_array.shape) == 3:
-        img_array = img_array.mean(axis=2)
-
-    # Normalize the values to 0-1
-    img_array = img_array / 255.0
-
-    # Convert to tensor and reshape to 1D
-    return torch.from_numpy(img_array).float().view(-1)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train QR Code Generator")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training")
+    parser.add_argument("--num_epochs", type=int, default=50, help="Number of epochs to train")
+    parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate")
+    parser.add_argument("--train_size", type=int, default=10000, help="Number of training samples")
+    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu",
+                        help="Device to use for training")
+    parser.add_argument("--embed_size", type=int, default=1024, help="Embedding size")
+    parser.add_argument("--hidden_size", type=int, default=4816, help="Hidden size")
+    parser.add_argument("--num_encoder_layers", type=int, default=6, help="Number of encoder layers")
+    parser.add_argument("--num_heads", type=int, default=8, help="Number of attention heads")
+    return parser.parse_args()
 
 
-# Example usage
 if __name__ == "__main__":
-    # Hyperparameters
-    BATCH_SIZE = 32
-    NUM_EPOCHS = 50
-    LEARNING_RATE = 0.001
-    TRAIN_SIZE = 10000
-    VAL_SIZE = 2000
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # Initialize model
-    model = Model()
+    args = parse_args()
+
+    # Initialize model with arguments
+    model = Model(embed_size=args.embed_size,
+                  hidden_size=args.hidden_size,
+                  num_encoder_layers=args.num_encoder_layers,
+                  num_heads=args.num_heads)
 
     # Create datasets
-    train_dataset = QRDataSet(size=TRAIN_SIZE)
+    train_dataset = QRDataSet(size=args.train_size)
+
 
     def collate_fn(batch):
         strings, qr_tensors = zip(*batch)
         tokens, attention_mask = tokenize_and_pad(strings, model.max_length, model.pad_token_id)
         return tokens, attention_mask, torch.stack(qr_tensors)
 
+
     # Create data loaders
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_fn)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
 
     # Train the model
-    trained_model = train_model(model, train_loader, NUM_EPOCHS, LEARNING_RATE, DEVICE)
+    trained_model = train_model(model, train_loader, args.num_epochs, args.learning_rate, args.device)
 
     # Save the trained model
     torch.save(trained_model.state_dict(), "qr_generator_model.pth")
@@ -68,8 +55,8 @@ if __name__ == "__main__":
     model.eval()
     test_strings = ["Hello, World!", "Python is great", "QR Codes"]
     tokens, attention_mask = tokenize_and_pad(test_strings, model.max_length, model.pad_token_id)
-    tokens = tokens.to(DEVICE)
-    attention_mask = attention_mask.to(DEVICE)
+    tokens = tokens.to(args.device)
+    attention_mask = attention_mask.to(args.device)
 
     with torch.no_grad():
         output = model(tokens, attention_mask)
