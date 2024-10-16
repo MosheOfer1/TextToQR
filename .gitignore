@@ -1,0 +1,7 @@
+.idea/
+*.pth
+__pycache___/
+__pycache__/main.cpython-310.pyc
+/__pycache__
+*.png
+/wandb
