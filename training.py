@@ -67,8 +67,6 @@ def train_model(model, train_loader, num_epochs, learning_rate, device, log_inte
                     "qr_codes": wandb.Image(fig, caption="Predicted vs Target"),
                     "pixel_accuracy": pixel_accuracy.item(),
                     "train_loss": loss.item(),
-                    "global_step": global_step,
-                    "epoch": epoch,
                 }, step=global_step)
                 plt.close(fig)
 

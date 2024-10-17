@@ -55,7 +55,12 @@ class Model(nn.Module):
         # BartEncoder layer
         self.encoder = BartEncoder(bart_config)
 
-        self.f1 = nn.Linear(embed_size, 441)  # 21x21 = 441
+        self.f1 = nn.Sequential(*([layer for _ in range(num_encoder_layers)
+                                   for layer in (nn.Linear(embed_size, hidden_size),
+                                                 nn.ReLU(),
+                                                 nn.Linear(hidden_size, embed_size))
+                                   ] +
+                                  [nn.Linear(embed_size, 441)]))
 
     def forward(self, tokens, attention_mask):
         batch_size, seq_length = tokens.size()
