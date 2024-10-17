@@ -7,7 +7,7 @@ import string
 
 
 class QRDataSet(Dataset):
-    def __init__(self, size=1000, min_length=1, max_length=7):
+    def __init__(self, size=1000, min_length=1, max_length=14):
         self.size = size
         self.min_length = min_length
         self.max_length = max_length
