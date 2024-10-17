@@ -21,7 +21,7 @@ class QRDataSet(Dataset):
         random_string = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation, k=length))
 
         # Create QR code
-        qr = qrcode.QRCode(version=1, box_size=1, border=0, mask_pattern=0, error_correction=2)
+        qr = qrcode.QRCode(version=1, box_size=1, border=0, mask_pattern=0, error_correction=1)
         qr.add_data(random_string)
 
         qr.make(fit=True)
