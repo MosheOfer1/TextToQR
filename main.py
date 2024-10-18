@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 import argparse
 
-from model import Model, tokenize_and_pad
+from model import EncoderModel, tokenize_and_pad, T5EncoderDecoderModel
 from qr_dataset import QRDataSet
 from training import train_model
 
@@ -26,10 +26,10 @@ if __name__ == "__main__":
     args = parse_args()
 
     # Initialize model with arguments
-    model = Model(embed_size=args.embed_size,
-                  hidden_size=args.hidden_size,
-                  num_encoder_layers=args.num_encoder_layers,
-                  num_heads=args.num_heads)
+    model = T5EncoderDecoderModel(embed_size=args.embed_size,
+                                  hidden_size=args.hidden_size,
+                                  num_encoder_layers=args.num_encoder_layers,
+                                  num_heads=args.num_heads)
 
     # Create datasets
     train_dataset = QRDataSet(size=args.train_size)

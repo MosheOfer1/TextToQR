@@ -1,6 +1,9 @@
+from typing import Optional, Tuple
+
 import torch
 import torch.nn as nn
-from transformers import BartConfig
+from torch import Tensor
+from transformers import BartConfig, T5Config, T5Model
 from transformers.models.bart.modeling_bart import BartEncoder
 
 
@@ -31,9 +34,9 @@ def tokenize_and_pad(string_list, max_length, pad_token_id):
     return tokens, attention_mask
 
 
-class Model(nn.Module):
+class EncoderModel(nn.Module):
     def __init__(self, vocab_size=128, embed_size=1024, hidden_size=4816, max_length=14, num_encoder_layers=6, num_heads=8):
-        super(Model, self).__init__()
+        super(EncoderModel, self).__init__()
         self.max_length = max_length
         self.pad_token_id = vocab_size  # Use the last token as padding token
         self.cls_token_id = vocab_size + 1  # Use vocab_size + 1 as [CLS] token
@@ -86,5 +89,67 @@ class Model(nn.Module):
         # Feed-forward layers
         # x = self.f1(cls_representation)
         x = torch.sigmoid(cls_representation)  # Sigmoid to get values between 0 and 1
+
+        return x  # Shape: [batch_size, 441]
+
+
+class T5EncoderDecoderModel(nn.Module):
+    def __init__(self,
+                 vocab_size=128,
+                 num_of_pixels=441,
+                 embed_size=1024,
+                 hidden_size=4816,
+                 max_length=14,
+                 num_encoder_layers=6,
+                 num_decoder_layers=6,
+                 num_heads=8
+                 ):
+        super(T5EncoderDecoderModel, self).__init__()
+        self.max_length = max_length
+        self.num_of_pixels = num_of_pixels
+
+        # T5 configuration
+        self.t5_config = T5Config(
+            vocab_size=vocab_size,
+            d_model=embed_size,
+            d_ff=hidden_size,
+            num_layers=num_encoder_layers,
+            num_decoder_layers=num_decoder_layers,
+            num_heads=num_heads,
+            max_position_embeddings=max_length,
+        )
+
+        # T5Model
+        self.t5_model = T5Model(self.t5_config)
+
+        # Final linear layer
+        self.final_linear = nn.Linear(embed_size, 1)
+
+    def forward(
+            self,
+            input_ids: Optional[torch.LongTensor] = None,
+            attention_mask: Optional[torch.FloatTensor] = None,
+    ) -> Tensor:
+        # Create zero tensor for decoder input embeddings
+        batch_size = input_ids.size(0)
+        decoder_inputs_embeds = torch.zeros((batch_size, self.num_of_pixels, self.t5_config.d_model), device=input_ids.device)
+
+        # T5Model forward pass
+        outputs = self.t5_model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            decoder_inputs_embeds=decoder_inputs_embeds,
+        )
+
+        sequence_output = outputs.last_hidden_state
+
+        # Apply final linear layer to each token's representation
+        x = self.final_linear(sequence_output)  # Shape: [batch_size, 441, 1]
+
+        # Remove the last dimension
+        x = x.squeeze(-1)  # Shape: [batch_size, 441]
+
+        # Apply sigmoid activation
+        x = torch.sigmoid(x)
 
         return x  # Shape: [batch_size, 441]
