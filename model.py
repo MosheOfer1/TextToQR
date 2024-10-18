@@ -106,11 +106,12 @@ class T5EncoderDecoderModel(nn.Module):
                  ):
         super(T5EncoderDecoderModel, self).__init__()
         self.max_length = max_length
+        self.pad_token_id = vocab_size  # Use the last token as padding token
         self.num_of_pixels = num_of_pixels
 
         # T5 configuration
         self.t5_config = T5Config(
-            vocab_size=vocab_size,
+            vocab_size=vocab_size + 1,
             d_model=embed_size,
             d_ff=hidden_size,
             num_layers=num_encoder_layers,
