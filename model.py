@@ -1,9 +1,6 @@
-from typing import Optional, Tuple
-
 import torch
 import torch.nn as nn
-from torch import Tensor
-from transformers import BartConfig, T5Config, T5Model
+from transformers import BartConfig
 from transformers.models.bart.modeling_bart import BartEncoder, BartDecoder
 
 
@@ -86,7 +83,7 @@ class EncoderModel(nn.Module):
         return x  # Shape: [batch_size, 441]
 
 
-class T5EncoderDecoderModel(nn.Module):
+class EncoderDecoderModel(nn.Module):
     def __init__(self,
                  vocab_size=128,
                  num_of_pixels=441,
@@ -97,7 +94,7 @@ class T5EncoderDecoderModel(nn.Module):
                  num_decoder_layers=6,
                  num_heads=8
                  ):
-        super(T5EncoderDecoderModel, self).__init__()
+        super(EncoderDecoderModel, self).__init__()
         self.max_length = max_length
         self.num_of_pixels = num_of_pixels
         self.pad_token_id = vocab_size  # Use the last token as padding token
@@ -123,8 +120,8 @@ class T5EncoderDecoderModel(nn.Module):
         self.encoder = BartEncoder(self.bart_config)
         self.decoder = BartDecoder(self.bart_config)
 
-        # Individual layers for each pixel
-        self.pixel_layers = nn.ModuleList([nn.Linear(embed_size, 1) for _ in range(num_of_pixels)])
+        # # Individual layers for each pixel
+        # self.pixel_layers = nn.ModuleList([nn.Linear(embed_size, 1) for _ in range(num_of_pixels)])
 
     def forward(self, tokens, attention_mask):
         batch_size, seq_length = tokens.size()
@@ -150,11 +147,11 @@ class T5EncoderDecoderModel(nn.Module):
         )
         decoder_hidden_states = decoder_outputs.last_hidden_state  # Shape: [batch_size, num_of_pixels, embed_size]
 
-        # Apply individual layers for each pixel
-        output = torch.zeros((batch_size, self.num_of_pixels), device=tokens.device)
-        for i, layer in enumerate(self.pixel_layers):
-            output[:, i] = layer(decoder_hidden_states[:, i, :]).squeeze(-1)
-
+        # # Apply individual layers for each pixel
+        # output = torch.zeros((batch_size, self.num_of_pixels), device=tokens.device)
+        # for i, layer in enumerate(self.pixel_layers):
+        #     output[:, i] = layer(decoder_hidden_states[:, i, :]).squeeze(-1)
+        output = torch.mean(decoder_hidden_states, dim=-1)
         output = torch.sigmoid(output)
 
         return output  # Shape: [batch_size, 441]
