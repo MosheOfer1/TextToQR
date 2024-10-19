@@ -77,7 +77,6 @@ class EncoderModel(nn.Module):
         cls_representation = sequence_output[:, 0, :]  # Shape: [batch_size, embed_size]
 
         # Feed-forward layers
-        # x = self.f1(cls_representation)
         x = torch.sigmoid(cls_representation)  # Sigmoid to get values between 0 and 1
 
         return x  # Shape: [batch_size, 441]
@@ -121,7 +120,7 @@ class EncoderDecoderModel(nn.Module):
         self.decoder = BartDecoder(self.bart_config)
 
         # # Individual layers for each pixel
-        # self.pixel_layers = nn.ModuleList([nn.Linear(embed_size, 1) for _ in range(num_of_pixels)])
+        self.pixel_layers = nn.ModuleList([nn.Linear(embed_size, 1) for _ in range(num_of_pixels)])
 
     def forward(self, tokens, attention_mask):
         batch_size, seq_length = tokens.size()
@@ -148,10 +147,10 @@ class EncoderDecoderModel(nn.Module):
         decoder_hidden_states = decoder_outputs.last_hidden_state  # Shape: [batch_size, num_of_pixels, embed_size]
 
         # # Apply individual layers for each pixel
-        # output = torch.zeros((batch_size, self.num_of_pixels), device=tokens.device)
-        # for i, layer in enumerate(self.pixel_layers):
-        #     output[:, i] = layer(decoder_hidden_states[:, i, :]).squeeze(-1)
-        output = torch.mean(decoder_hidden_states, dim=-1)
+        output = torch.zeros((batch_size, self.num_of_pixels), device=tokens.device)
+        for i, layer in enumerate(self.pixel_layers):
+            output[:, i] = layer(decoder_hidden_states[:, i, :]).squeeze(-1)
+
         output = torch.sigmoid(output)
 
         return output  # Shape: [batch_size, 441]

@@ -17,7 +17,7 @@ class QRDataSet(Dataset):
 
     def __getitem__(self, idx):
         # Generate a random string
-        length = random.randint(self.min_length, self.max_length)
+        length = self.max_length  # random.randint(self.min_length, self.max_length)
         random_string = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation, k=length))
 
         # Create QR code
