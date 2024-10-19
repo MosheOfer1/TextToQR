@@ -123,9 +123,6 @@ class T5EncoderDecoderModel(nn.Module):
         # T5Model
         self.t5_model = T5Model(self.t5_config)
 
-        # Final linear layer
-        self.final_linear = nn.Linear(embed_size, 1)
-
     def forward(
             self,
             input_ids: Optional[torch.LongTensor] = None,
@@ -144,11 +141,7 @@ class T5EncoderDecoderModel(nn.Module):
 
         sequence_output = outputs.last_hidden_state
 
-        # Apply final linear layer to each token's representation
-        x = self.final_linear(sequence_output)  # Shape: [batch_size, 441, 1]
-
-        # Remove the last dimension
-        x = x.squeeze(-1)  # Shape: [batch_size, 441]
+        x = torch.mean(sequence_output, dim=-1)
 
         # Apply sigmoid activation
         x = torch.sigmoid(x)
